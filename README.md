@@ -4,6 +4,11 @@ A small reverse proxy. It matches the incoming `Host` against `proxies.json`, ch
 
 ## Run
 
+```bash
+git clone https://github.com/niellevince/go-proxy.git
+cd go-proxy
+```
+
 From the repo root:
 
 ```powershell
