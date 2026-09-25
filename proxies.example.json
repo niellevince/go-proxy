@@ -1,0 +1,10 @@
+{
+  "healthHost": "health.example.com",
+  "proxies": [
+    {
+      "from": "hello.world.com",
+      "to": "https://hi.world.com",
+      "key": "CHANGE_ME"
+    }
+  ]
+}
