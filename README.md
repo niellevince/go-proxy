@@ -1,6 +1,6 @@
 # go-proxy
 
-A small reverse proxy. It matches the incoming `Host` against `proxies.json`, checks `X-PROXY-KEY`, and forwards the request to an HTTPS upstream. Cloudflare Tunnel publishes the hostnames and forwards them to this process. The proxy does not terminate public TLS.
+A small reverse proxy. It matches the incoming `Host` against `proxies.json`, checks `X-PROXY-KEY`, and forwards the request to an HTTPS upstream. Put nginx, cloudflared, or a local tunnel in front of it. The proxy does not terminate public TLS.
 
 ## Run
 
@@ -15,6 +15,16 @@ Copy `.env.example` to `.env`. The listen port comes from `PORT` in `.env`. The 
 `proxies.json` must exist in the working directory. It is gitignored. Copy `proxies.example.json` to start, or add a route with the CLI, which creates the file when it is missing.
 
 The server reloads `proxies.json` when the file changes. A restart is not required after adding a route.
+
+## Docker
+
+Compose runs only this server. Publish the port and point whatever is in front of it at that port.
+
+```powershell
+docker compose up --build
+```
+
+`proxies.json` is mounted from the repo, so the CLI on the host still updates routes and the container reloads them. `PORT` in `.env` is both the published port and the port inside the container. The default is `8000`.
 
 ## Add a route
 
@@ -61,7 +71,3 @@ Send the key on each proxied request:
 ```powershell
 curl -H "Host: hello.world.com" -H "X-PROXY-KEY: the-printed-key" http://127.0.0.1:8000/path
 ```
-
-## Cloudflare Tunnel
-
-`cloudflared` runs separately and forwards ingress to `http://127.0.0.1:8000`. `cloudflared.example.yml` is a starting ingress list. Replace the hostnames with the ones in `proxies.json`. Turn on Cloudflare “Always Use HTTPS” so port 80 is not needed here.

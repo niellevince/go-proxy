@@ -1,6 +1,0 @@
-ingress:
-  - hostname: hello.world.com
-    service: http://127.0.0.1:8000
-  - hostname: health.example.com
-    service: http://127.0.0.1:8000
-  - service: http_status:404
