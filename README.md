@@ -10,7 +10,7 @@ From the repo root:
 go run ./cmd/server
 ```
 
-The listen port comes from `PORT` in `.env`. The default is `8000`. A `PORT` already set in the environment is left as-is. An empty or invalid value falls back to `8000`.
+Copy `.env.example` to `.env`. The listen port comes from `PORT` in `.env`. The default is `8000`. A `PORT` already set in the environment is left as-is. An empty or invalid value falls back to `8000`. `.env` is gitignored.
 
 `proxies.json` must exist in the working directory. It is gitignored. Copy `proxies.example.json` to start, or add a route with the CLI, which creates the file when it is missing.
 
