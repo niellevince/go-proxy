@@ -1,8 +1,10 @@
 package proxy
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -32,33 +34,45 @@ func New(path string) *Handler {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	from := r.Host
+	to := "-"
+	rawReq := dumpRequest(r)
+	rec := &captureWriter{ResponseWriter: w}
+	var proxyErr error
+	defer func() {
+		log.Printf("From: %s\nTo: %s\n%s\n%s", from, to, rawReq, rec.dump(proxyErr))
+	}()
+
 	file, err := h.current()
 	if err != nil {
-		http.Error(w, "Bad Gateway", http.StatusBadGateway)
+		proxyErr = err
+		http.Error(rec, "Bad Gateway", http.StatusBadGateway)
 		return
 	}
 
 	host := NormalizeHost(r.Host)
 	if file.HealthHost != "" && host == NormalizeHost(file.HealthHost) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok\n"))
+		rec.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		rec.WriteHeader(http.StatusOK)
+		_, _ = rec.Write([]byte("ok\n"))
 		return
 	}
 
 	route, ok := h.byHost[host]
 	if !ok {
-		http.Error(w, "Not Found", http.StatusNotFound)
+		http.Error(rec, "Not Found", http.StatusNotFound)
 		return
 	}
+	from = route.From
+	to = route.To
 	if strings.TrimSpace(route.Key) != "" && !keyMatch(r.Header.Get(headerKey), route.Key) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		http.Error(rec, "Forbidden", http.StatusForbidden)
 		return
 	}
 
 	target, err := url.Parse(route.To)
 	if err != nil || target.Host == "" || target.Scheme != "https" {
-		http.Error(w, "Bad Gateway", http.StatusBadGateway)
+		http.Error(rec, "Bad Gateway", http.StatusBadGateway)
 		return
 	}
 
@@ -70,10 +84,76 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 		FlushInterval: -1,
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			proxyErr = err
 			http.Error(w, "Bad Gateway", http.StatusBadGateway)
 		},
 	}
-	rp.ServeHTTP(w, r)
+	rp.ServeHTTP(rec, r)
+}
+
+func dumpRequest(r *http.Request) string {
+	raw, err := httputil.DumpRequest(r, true)
+	if err != nil {
+		return fmt.Sprintf("request dump error: %v", err)
+	}
+	var b strings.Builder
+	for line := range strings.SplitSeq(string(raw), "\n") {
+		if strings.HasPrefix(strings.ToLower(line), "x-proxy-key:") {
+			continue
+		}
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	return strings.TrimSuffix(b.String(), "\n")
+}
+
+type captureWriter struct {
+	http.ResponseWriter
+	status int
+	body   bytes.Buffer
+}
+
+func (c *captureWriter) WriteHeader(code int) {
+	if c.status == 0 {
+		c.status = code
+		c.ResponseWriter.WriteHeader(code)
+	}
+}
+
+func (c *captureWriter) Write(p []byte) (int, error) {
+	if c.status == 0 {
+		c.WriteHeader(http.StatusOK)
+	}
+	c.body.Write(p)
+	return c.ResponseWriter.Write(p)
+}
+
+func (c *captureWriter) Flush() {
+	if f, ok := c.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (c *captureWriter) dump(proxyErr error) string {
+	status := c.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "HTTP %d\n", status)
+	for name, values := range c.Header() {
+		for _, value := range values {
+			fmt.Fprintf(&b, "%s: %s\n", name, value)
+		}
+	}
+	if proxyErr != nil {
+		fmt.Fprintf(&b, "\nproxy error: %v\n", proxyErr)
+	}
+	if c.body.Len() > 0 {
+		b.WriteByte('\n')
+		b.Write(c.body.Bytes())
+	}
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 func (h *Handler) current() (*store.File, error) {

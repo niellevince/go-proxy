@@ -81,3 +81,5 @@ Send the key on each proxied request:
 ```powershell
 curl -H "Host: hello.world.com" -H "X-PROXY-KEY: the-printed-key" http://127.0.0.1:8000/path
 ```
+
+More client examples are in [client-samples.md](client-samples.md).
