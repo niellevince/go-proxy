@@ -1,5 +1,8 @@
+name: go-proxy
+
 services:
   proxy:
+    container_name: go-proxy
     build: .
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
