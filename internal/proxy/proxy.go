@@ -51,7 +51,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
-	if !keyMatch(r.Header.Get(headerKey), route.Key) {
+	if strings.TrimSpace(route.Key) != "" && !keyMatch(r.Header.Get(headerKey), route.Key) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}

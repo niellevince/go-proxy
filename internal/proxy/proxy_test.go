@@ -29,11 +29,18 @@ func TestRouting(t *testing.T) {
 	path := filepath.Join(dir, "proxies.json")
 	if err := store.Save(path, &store.File{
 		HealthHost: "health.example.com",
-		Proxies: []store.Route{{
-			From: "hello.world.com",
-			To:   upstream.URL,
-			Key:  "secret",
-		}},
+		Proxies: []store.Route{
+			{
+				From: "hello.world.com",
+				To:   upstream.URL,
+				Key:  "secret",
+			},
+			{
+				From: "public.example.com",
+				To:   upstream.URL,
+				Key:  "",
+			},
+		},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +69,14 @@ func TestRouting(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("missing key status %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "http://public.example.com/open", nil)
+	req.Host = "public.example.com"
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || rec.Body.String() != "/open" {
+		t.Fatalf("public proxy %d %q", rec.Code, rec.Body.String())
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "http://other.example/", nil)

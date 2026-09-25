@@ -32,7 +32,11 @@ docker compose up --build
 go run cli.go --from hello.world.com --to hi.world.com
 ```
 
-`--to` can be a hostname or a full `https://` origin. A bare hostname is stored as `https://hi.world.com`. The CLI generates a 32-byte hex key, saves the route, and prints `from`, `to`, and `key`. Copy the key. A duplicate `--from` is rejected and the existing key is left unchanged.
+`--to` can be a hostname or a full `https://` origin. A bare hostname is stored as `https://hi.world.com`. The CLI generates a 32-byte hex key, saves the route, and prints `from`, `to`, and `key`. Copy the key. Pass `--no-key` to add a public route with an empty key and no `X-PROXY-KEY` check. A duplicate `--from` is rejected and the existing key is left unchanged.
+
+```powershell
+go run cli.go --from hello.world.com --to hi.world.com --no-key
+```
 
 ```powershell
 go run cli.go --file proxies.json --from hello.world.com --to https://hi.world.com/base
@@ -61,7 +65,8 @@ Hosts are matched without case sensitivity. A port on the incoming `Host` header
 |---|---|
 | `Host` is `healthHost` | `200` `ok`, no key check, not proxied |
 | `Host` is not listed | `404` |
-| Missing or wrong `X-PROXY-KEY` | `403` |
+| `key` is empty | Proxied with no key check |
+| Missing or wrong `X-PROXY-KEY` when `key` is set | `403` |
 | Key matches | Proxied to `to` |
 
 The path and query are forwarded. `Host` and TLS SNI are set to the upstream host. `X-PROXY-KEY` is removed before the request leaves. An upstream failure returns `502`.

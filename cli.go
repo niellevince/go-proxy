@@ -16,15 +16,16 @@ func main() {
 	from := flag.String("from", "", "incoming hostname")
 	to := flag.String("to", "", "upstream hostname or https origin")
 	path := flag.String("file", store.DefaultPath, "proxies config path")
+	noKey := flag.Bool("no-key", false, "add a public route with no API key")
 	flag.Parse()
 
-	if err := add(*path, *from, *to); err != nil {
+	if err := add(*path, *from, *to, *noKey); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func add(path, from, to string) error {
+func add(path, from, to string, noKey bool) error {
 	host := proxy.NormalizeHost(from)
 	if host == "" || strings.Contains(host, "/") {
 		return fmt.Errorf("--from must be a hostname")
@@ -44,9 +45,13 @@ func add(path, from, to string) error {
 		}
 	}
 
-	key, err := newKey()
-	if err != nil {
-		return err
+	key := ""
+	if !noKey {
+		var err error
+		key, err = newKey()
+		if err != nil {
+			return err
+		}
 	}
 	file.Proxies = append(file.Proxies, store.Route{
 		From: host,
@@ -57,6 +62,10 @@ func add(path, from, to string) error {
 		return err
 	}
 
+	if noKey {
+		fmt.Printf("from: %s\nto: %s\npublic: no key\n", host, target)
+		return nil
+	}
 	fmt.Printf("from: %s\nto: %s\nkey: %s\n", host, target, key)
 	return nil
 }
